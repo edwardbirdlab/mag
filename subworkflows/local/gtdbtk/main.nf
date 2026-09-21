@@ -48,8 +48,15 @@ workflow GTDBTK {
                     .each { row ->
                         // CheckM / CheckM2 strip the .fa extension from the bin name
                         def bin_name = tool == 'busco' ? row[cols[0]] : row[cols[0]] + '.fa'
-                        def completeness = "${row[cols[1]]}".toDouble()
-                        def contamination = "${row[cols[2]]}".toDouble()
+                        def completeness_str = "${row[cols[1]]}"
+                        def contamination_str = "${row[cols[2]]}"
+                        // an empty value means the tool could not assess the bin (e.g. a
+                        // failed/ignored BUSCO task) -- skip this reading rather than crash
+                        if (completeness_str == '' || contamination_str == '') {
+                            return
+                        }
+                        def completeness = completeness_str.toDouble()
+                        def contamination = contamination_str.toDouble()
 
                         def readings = metrics.get(bin_name, [])
                         // a negative value means the tool could not assess the bin, so we drop the whole reading
@@ -62,7 +69,17 @@ workflow GTDBTK {
 
             // drop bins with no QC metric, then split the rest:
             // a bin passes if any single tool clears both thresholds together
-            def (passed, discarded) = bins
+            // NOTE: [bins].flatten() is required, not cosmetic -- when a bin group
+            // (e.g. a Tiara domain-classification bucket) has exactly one bin,
+            // Nextflow emits a bare Path instead of a List<Path>. Path implements
+            // Iterable<Path> and iterates its NAME COMPONENTS, so an unflattened
+            // .findAll here would walk directory segments instead of files,
+            // yielding a directory-less single-component relative path that
+            // Nextflow then resolves against the launch dir -- a dangling symlink
+            // downstream in GTDBTK_CLASSIFYWF. Every other bin-consuming spot in
+            // this pipeline already guards against this (binning/main.nf:202,
+            // mag.nf:498, depths/main.nf:29); this was the one that didn't.
+            def (passed, discarded) = [bins].flatten()
                 .findAll { bin -> metrics[bin.getName() - ~/\.gz$/] != null }
                 .split { bin ->
                     metrics[bin.getName() - ~/\.gz$/].any { reading ->
