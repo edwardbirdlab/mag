@@ -44,6 +44,12 @@ find_classification <- function(probabilities, join_prokaryotes = TRUE) {
     } else {
         classifications <- c("archaea", "bacteria", "eukarya", "organelle", "unknown")
     }
+    ## Had some bins where every contig in is NA for every column, 
+    ## breaking mutate().
+    ## Treating that the same as the "no classified contigs" case.
+    if(all(is.na(probabilities))) {
+        return("unknown")
+    }
     return(classifications[which.max(probabilities)])
 }
 
