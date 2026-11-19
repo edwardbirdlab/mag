@@ -20,6 +20,7 @@ include { VIRUS_IDENTIFICATION            } from '../subworkflows/local/virus_id
 include { GTDBTK                          } from '../subworkflows/local/gtdbtk/main'
 include { ANCIENT_DNA_ASSEMBLY_VALIDATION } from '../subworkflows/local/ancient_dna/main'
 include { DOMAIN_CLASSIFICATION           } from '../subworkflows/local/domain_classification/main'
+include { TIARA_TIARA                     } from '../modules/nf-core/tiara/tiara/main'
 include { DEPTHS                          } from '../subworkflows/local/depths/main'
 include { LONGREAD_PREPROCESSING          } from '../subworkflows/local/preprocessing_longread/main'
 include { SHORTREAD_PREPROCESSING         } from '../subworkflows/local/preprocessing_shortread/main'
@@ -615,6 +616,17 @@ workflow MAG {
             METAEUK_EASYPREDICT(ch_bins_for_metaeuk, ch_metaeuk_db)
             ch_versions = ch_versions.mix(METAEUK_EASYPREDICT.out.versions)
         }
+    }
+
+    //
+    // Custom change for allowing Tiara to be run without binning
+    // Used to create a refernce set for host removal when no host genome esists
+    //
+
+
+    else if (params.bin_domain_classification && params.bin_domain_classification_tool == "tiara") {
+        TIARA_TIARA(ch_assemblies)
+        ch_versions = ch_versions.mix(TIARA_TIARA.out.versions)
     }
 
     //
